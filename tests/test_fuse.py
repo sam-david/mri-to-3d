@@ -77,3 +77,11 @@ def test_anatomy_labels(name, cat, label):
     from mri3d.anatomy import category, pretty
     assert category(name) == cat
     assert pretty(name) == label
+
+
+@pytest.mark.parametrize("upper,lower,root", [
+    ("C4", "C5", "C5"), ("C7", "T1", "C8"), ("T6", "T7", "T6"), ("L4", "L5", "L4"), ("L5", "S1", "L5"),
+])
+def test_exiting_root(upper, lower, root):
+    from mri3d.markers import exiting_root
+    assert exiting_root(upper, lower) == root

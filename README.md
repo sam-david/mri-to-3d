@@ -60,6 +60,7 @@ mri3d inspect DICOM_DIR                       # list series, mark the ones build
 mri3d build DICOM_DIR [DICOM_DIR ...] -o OUT  # convert -> segment -> fuse
           [--preset auto|spine|body|limbs|muscles] [--series REGEX]
           [--title T] [--date D] [--highlight vertebrae_L4 disc_L4-L5]
+mri3d mark OUT --foramen L4-L5:left [--note "report finding"]   # mark a nerve-root exit
 mri3d viewer OUT [OUT ...] -o viewer.html     # one file, every model inlined
 mri3d viewer OUT [OUT ...] -o site --folder   # site/index.html + site/models/*.glb for hosting
 ```
@@ -77,6 +78,16 @@ separate cervical, thoracic and lumbar exams become a whole-spine model.
 
 \* needs TotalSegmentator's free non-commercial licence:
 `totalseg_set_license -l <key>` ([request one](https://backend.totalsegmentator.com/license-academic/)).
+
+### Markers
+
+Nerve roots and foramina are a few millimetres across, usually below what clinical slices can
+segment. When a report names a level and side ("left L4-5 foraminal stenosis"), `mri3d mark`
+places a marker on the exit path of that nerve root. It uses the patient's own reconstructed
+vertebrae, disc and spinal cord: it starts at the cord's edge at the disc level, angles
+the way foramina run in that region, and centres the height in the bony gap between the two
+vertebrae. The viewer shows a toggle per marker that flies the camera to it, along with any `--note`.
+Markers show location, not severity.
 
 ### Outputs
 

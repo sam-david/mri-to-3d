@@ -24,6 +24,15 @@ def _faces_for(volume_cm3: float) -> int:
     return int(np.clip(volume_cm3 * 250, 2500, 12000))
 
 
+def _to_gltf(points, center):
+    p = np.asarray(points, float) - center
+    return np.round(p @ RAS_TO_GLTF[:3, :3].T, 2).tolist()
+
+
+def study_center(study_dir: Path) -> np.ndarray:
+    return np.mean([trimesh.load(p).centroid for p in sorted((study_dir / "stl").glob("*.stl"))], axis=0)
+
+
 def study_glb(study_dir: Path, manifest: dict) -> bytes:
     stl = {p.stem: trimesh.load(p) for p in sorted((study_dir / "stl").glob("*.stl"))}
     center = np.mean([m.centroid for m in stl.values()], axis=0)
@@ -49,7 +58,9 @@ def export(study_dirs: list[Path], dest: Path, folder: bool = False, title: str 
         d = Path(d)
         manifest = json.loads((d / "manifest.json").read_text())
         glb = study_glb(d, manifest)
+        center = study_center(d)
         entry = {k: manifest.get(k) for k in ("id", "title", "date", "sources", "notes", "highlight", "alignment", "structures")}
+        entry["annotations"] = [{**an, "path": _to_gltf(an["path"], center)} for an in manifest.get("annotations", [])]
         if folder:
             (dest / "models" / f"{manifest['id']}.glb").write_bytes(glb)
             entry["src"] = f"models/{manifest['id']}.glb"

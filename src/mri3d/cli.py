@@ -2,6 +2,7 @@
 
   mri3d inspect  DICOM_DIR                 list series and which ones would be used
   mri3d build    DICOM_DIR [...] -o OUT    convert, segment, fuse  -> OUT/stl/*.stl + manifest.json
+  mri3d mark     OUT --foramen L4-L5:left  add a location marker (e.g. a nerve-root exit) to a build
   mri3d viewer   OUT [...] -o viewer.html  bundle one or more builds into the web viewer
 """
 from __future__ import annotations
@@ -11,7 +12,7 @@ import hashlib
 import re
 from pathlib import Path
 
-from . import dicom, segment, web
+from . import dicom, markers, segment, web
 from .segment import PRESETS
 
 
@@ -60,6 +61,14 @@ def cmd_build(a):
     m = build(groups, out, info, names)
     multi = sum(1 for v in m["structures"].values() if (v["multi_series_fraction"] or 0) >= 0.8)
     print(f"\n{len(m['structures'])} structures -> {out}/stl  ({multi} reconstructed from 2+ series)")
+    for spec in a.foramen or []:
+        print(f"marked {markers.add(out, spec)['label']}")
+
+
+def cmd_mark(a):
+    for spec in a.foramen:
+        mk = markers.add(Path(a.out), spec, a.note)
+        print(f"marked {mk['label']} in {a.out}")
 
 
 def cmd_viewer(a):
@@ -84,7 +93,14 @@ def main(argv=None):
     b.add_argument("--title"); b.add_argument("--date"); b.add_argument("--id"); b.add_argument("--notes")
     b.add_argument("--highlight", nargs="*", help="structure names to highlight, e.g. vertebrae_L4 disc_L4-L5")
     b.add_argument("--device", choices=["gpu", "mps", "cpu"], help="default: auto-detect")
+    b.add_argument("--foramen", nargs="*", metavar="LEVEL:SIDE", help="mark neural foramina, e.g. L4-L5:left C6-C7:right")
     b.set_defaults(fn=cmd_build)
+
+    k = sub.add_parser("mark", help="add location markers to an existing build")
+    k.add_argument("out", help="a build folder (contains manifest.json and stl/)")
+    k.add_argument("--foramen", nargs="+", required=True, metavar="LEVEL:SIDE", help="e.g. L4-L5:left")
+    k.add_argument("--note", help="text shown with the marker in the viewer (e.g. a report finding)")
+    k.set_defaults(fn=cmd_mark)
 
     v = sub.add_parser("viewer", help="bundle builds into the web viewer")
     v.add_argument("builds", nargs="+")
