@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e3e1dc;
+  --accent: #c8553d; --accent-soft: #f4dcd5; --viewport: #eceae5; --chip: #f0eee9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141416; --panel: #1c1c1f; --ink: #ececee; --muted: #9a9aa2; --line: #2c2c31;
+    --accent: #e0775e; --accent-soft: #3a2420; --viewport: #101012; --chip: #26262a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141416; --panel: #1c1c1f; --ink: #ececee; --muted: #9a9aa2; --line: #2c2c31;
+  --accent: #e0775e; --accent-soft: #3a2420; --viewport: #101012; --chip: #26262a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+.app { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 20px 18px 28px; }
+h1 { font-size: 17px; margin: 0 0 2px; letter-spacing: -0.01em; }
+.sub { color: var(--muted); font-size: 12.5px; margin-bottom: 16px; }
+label.field { display: block; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 16px 0 6px; }
+select { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+.meta { background: var(--chip); border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 12.5px; }
+.meta b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin-top: 6px; }
+.meta b:first-child { margin-top: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 6px; }
+button { font: inherit; font-size: 12.5px; padding: 6px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.group { margin-top: 10px; }
+.group-h { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 12.5px; padding: 4px 0; }
+.group-h button { padding: 2px 8px; font-size: 11.5px; }
+.items { display: flex; flex-wrap: wrap; gap: 4px; }
+.item { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 999px; background: var(--chip); font-size: 12px; cursor: pointer; user-select: none; border: 1px solid transparent; }
+.item .dot { width: 8px; height: 8px; border-radius: 50%; }
+.item.off { opacity: .4; }
+.item.sel { border-color: var(--accent); }
+main { position: relative; background: var(--viewport); min-height: 0; }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+#tip { position: absolute; pointer-events: none; background: var(--panel); color: var(--ink); border: 1px solid var(--line); padding: 5px 9px; border-radius: 7px; font-size: 12.5px; display: none; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+#sel { position: absolute; left: 14px; bottom: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 12.5px; display: none; max-width: calc(100% - 28px); }
+#loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+.legend { position: absolute; right: 14px; top: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; margin-right: 8px; }
+.legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.disclaimer { margin-top: 18px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 58vh auto; height: auto; }
+  main { order: 1; height: 58vh; }
+  aside { order: 2; border-right: 0; border-top: 1px solid var(--line); padding: 16px; }
+  .legend { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>__TITLE__</h1>
+    <div class="sub">3D models built from MRI / CT with mri-to-3d</div>
+
+    <label class="field" for="study">Scan</label>
+    <select id="study"></select>
+    <div class="meta" id="meta"></div>
+
+    <label class="field">View</label>
+    <div class="row" id="views">
+      <button data-v="front">Front</button><button data-v="back">Back</button>
+      <button data-v="right">Your right</button><button data-v="left">Your left</button>
+      <button data-v="top">Top</button>
+    </div>
+
+    <label class="field">Display</label>
+    <div class="row">
+      <button id="hl" class="on">Highlight</button>
+      <button id="ghost" class="on">See-through soft tissue</button>
+      <button id="xray">X-ray bones</button>
+      <button id="spin">Auto-rotate</button>
+    </div>
+
+    <label class="field">Structures</label>
+    <div id="groups"></div>
+
+    <div class="disclaimer">These are visualisations made by automated segmentation (TotalSegmentator) of clinical scans, so they aren't diagnostic. Surface detail is limited by slice thickness. Use the original images and radiology reports for medical decisions.</div>
+  </aside>
+  <main>
+    <canvas id="c"></canvas>
+    <div id="loading">Loading…</div>
+    <div class="legend" id="legend"></div>
+    <div id="tip"></div>
+    <div id="sel"></div>
+  </main>
+</div>
+
+<script>window.STUDIES = /*__STUDIES__*/[];</script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+const STUDIES = window.STUDIES;
+const canvas = document.getElementById("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 1, 5000);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x6b6157, 1.6));
+const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(200, 300, 400); camera.add(key);
+const fill = new THREE.DirectionalLight(0xffffff, 0.6); fill.position.set(-300, -100, -200); camera.add(fill);
+scene.add(camera);
+
+const CAT = {  // sRGB, same palette as anatomy.py
+  bone: ["Bones", 0xe8dcc4], disc: ["Discs", 0x5aa0e6], neural: ["Nervous system", 0xf0c440],
+  organ: ["Organs", 0xd98c8c], lung: ["Lungs", 0xa8c8e0], vessel: ["Vessels", 0xc0392b],
+  muscle: ["Muscles", 0xb5655a], fat: ["Fat", 0xf2d98d], other: ["Other", 0xb0b0b8],
+};
+const GHOST = new Set(["neural", "lung", "organ", "muscle", "fat"]);  // see-through soft tissue
+const info = (n) => current.structures[n] || {};
+const catOf = (n) => info(n).category || "other";
+const pretty = (n) => info(n).label || n;
+const levelKey = (n) => {
+  const m = n.match(/(?:vertebrae_|disc_)([CTLS])(\d+)/); if (!m) return 999;
+  return { C: 0, T: 10, L: 30, S: 40 }[m[1]] + +m[2];
+};
+let HL = new Set();
+const colorFor = (n) => HL.has(n) ? (catOf(n) === "disc" ? 0xe65a5a : 0xec966e) : CAT[catOf(n)][1];
+
+let root = null, meshes = {}, baseColor = {}, selected = null, current = null;
+const state = { hl: true, ghost: true, xray: false, spin: false, hidden: new Set() };
+
+function b64ToBuf(b64) { const s = atob(b64); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
+
+function applyMaterials() {
+  for (const [n, m] of Object.entries(meshes)) {
+    const mat = m.material;
+    const isBone = catOf(n) === "bone";
+    const c = baseColor[n].clone();
+    if (!state.hl && HL.has(n)) c.set(CAT[catOf(n)][1]);
+    if (n === selected) c.lerp(new THREE.Color(0xc8553d), 0.45);
+    mat.color.copy(c);
+    let op = 1;
+    if (GHOST.has(catOf(n)) && state.ghost) op = catOf(n) === "lung" ? 0.25 : 0.5;
+    if (isBone && state.xray && !HL.has(n)) op = 0.18;
+    mat.transparent = op < 1; mat.opacity = op; mat.depthWrite = op === 1;
+    m.visible = !state.hidden.has(n);
+  }
+}
+
+function setView(v) {
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  const dist = Math.max(size.y, size.x * 1.4) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.15 + size.z;
+  // glTF axes here: +x = patient's left, +y = up (head), +z = patient's front
+  const dirs = { front: [0, 0, 1], back: [0, 0, -1], right: [-1, 0, 0], left: [1, 0, 0], top: [0, 1, 0.001] };
+  const d = new THREE.Vector3(...dirs[v]).normalize();
+  camera.position.copy(c).addScaledVector(d, dist);
+  camera.up.set(0, v === "top" ? 0 : 1, v === "top" ? -1 : 0);
+  controls.target.copy(c); controls.update();
+}
+
+function buildList() {
+  const groups = {};
+  for (const n of Object.keys(meshes)) (groups[catOf(n)] ||= []).push(n);
+  const el = document.getElementById("groups"); el.innerHTML = "";
+  for (const g of Object.keys(CAT)) {
+    if (!groups[g]) continue;
+    const names = groups[g].sort((a, b) => levelKey(a) - levelKey(b) || pretty(a).localeCompare(pretty(b)));
+    const wrap = document.createElement("div"); wrap.className = "group";
+    wrap.innerHTML = `<div class="group-h"><span>${CAT[g][0]}</span><button>Toggle all</button></div><div class="items"></div>`;
+    wrap.querySelector("button").onclick = () => {
+      const anyOn = names.some((n) => !state.hidden.has(n));
+      names.forEach((n) => anyOn ? state.hidden.add(n) : state.hidden.delete(n));
+      applyMaterials(); refreshChips();
+    };
+    const items = wrap.querySelector(".items");
+    for (const n of names) {
+      const chip = document.createElement("span"); chip.className = "item"; chip.dataset.n = n;
+      chip.innerHTML = `<span class="dot" style="background:#${baseColor[n].getHexString()}"></span>${pretty(n).replace(/ (vertebra|disc)$/, "")}`;
+      chip.title = "Click to show/hide, double-click to select";
+      chip.onclick = () => { state.hidden.has(n) ? state.hidden.delete(n) : state.hidden.add(n); applyMaterials(); refreshChips(); };
+      chip.ondblclick = () => select(n);
+      items.appendChild(chip);
+    }
+    el.appendChild(wrap);
+  }
+  refreshChips();
+}
+function refreshChips() {
+  document.querySelectorAll(".item").forEach((c) => {
+    c.classList.toggle("off", state.hidden.has(c.dataset.n));
+    c.classList.toggle("sel", c.dataset.n === selected);
+  });
+}
+
+function select(n) {
+  selected = selected === n ? null : n;
+  const box = document.getElementById("sel");
+  if (selected) {
+    const s = current.structures[selected] || {};
+    const fid = s.multi_series_fraction == null ? "" :
+      s.multi_series_fraction >= 0.8 ? " · seen in 2+ series (higher detail)" : s.multi_series_fraction > 0 ? " · partly seen in 2+ series" : " · from 1 series (coarser)";
+    box.innerHTML = `<b>${pretty(selected)}</b> · ${s.volume_cm3 ?? "?"} cm³${fid}`;
+    box.style.display = "block";
+  } else box.style.display = "none";
+  applyMaterials(); refreshChips();
+}
+
+const loader = new GLTFLoader();
+async function loadStudy(i) {
+  current = STUDIES[i];
+  document.getElementById("loading").style.display = "grid";
+  if (root) { scene.remove(root); root.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); }); }
+  const buf = current.glb ? b64ToBuf(current.glb) : await (await fetch(current.src)).arrayBuffer();
+  const gltf = await loader.parseAsync(buf, "");
+  root = gltf.scene; meshes = {}; baseColor = {}; selected = null; state.hidden.clear();
+  HL = new Set(current.highlight || []);
+  document.getElementById("hl").style.display = HL.size ? "" : "none";
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    const n = o.name || o.parent?.name;
+    if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+    o.geometry.deleteAttribute("color");  // ignore any baked vertex colours
+    o.material = new THREE.MeshStandardMaterial({ color: o.material.color, roughness: 0.75, metalness: 0, side: THREE.DoubleSide });
+    meshes[n] = o; baseColor[n] = new THREE.Color(colorFor(n)); o.userData.n = n;
+  });
+  scene.add(root);
+  const esc = (t) => String(t ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+  document.getElementById("meta").innerHTML = [["Date", current.date], ["Source", current.sources],
+    ["Alignment", (current.alignment || []).join("; ")], ["Notes", current.notes]]
+    .filter(([, v]) => v).map(([k, v]) => `<b>${k}</b>${esc(v)}`).join("");
+  const cats = [...new Set(Object.keys(meshes).map(catOf))];
+  document.getElementById("legend").innerHTML = cats.map((c) =>
+    `<span><i style="background:#${new THREE.Color(CAT[c][1]).getHexString()}"></i>${CAT[c][0]}</span>`).join("") +
+    (HL.size ? `<span><i style="background:#ec966e"></i>Highlighted</span>` : "");
+  document.getElementById("sel").style.display = "none";
+  buildList(); applyMaterials(); setView("front");
+  document.getElementById("loading").style.display = "none";
+  try { localStorage.setItem("mri3d.study", current.id); } catch {}
+}
+
+const sel = document.getElementById("study");
+STUDIES.forEach((s, i) => sel.add(new Option(`${s.date} · ${s.title}`, i)));
+sel.onchange = () => loadStudy(+sel.value);
+document.querySelectorAll("#views button").forEach((b) => b.onclick = () => setView(b.dataset.v));
+for (const id of ["hl", "ghost", "xray", "spin"]) {
+  const b = document.getElementById(id);
+  b.onclick = () => { state[id] = !state[id]; b.classList.toggle("on", state[id]); controls.autoRotate = state.spin; applyMaterials(); };
+}
+
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(), tip = document.getElementById("tip");
+function pick(e) {
+  const r = canvas.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const hit = ray.intersectObjects(Object.values(meshes).filter((m) => m.visible), false)
+    .find((h) => !(h.object.material.opacity < 0.3));
+  return hit?.object.userData.n;
+}
+canvas.addEventListener("pointermove", (e) => {
+  const n = root && pick(e);
+  if (n) { tip.textContent = pretty(n); tip.style.display = "block"; tip.style.left = e.offsetX + 14 + "px"; tip.style.top = e.offsetY + 10 + "px"; }
+  else tip.style.display = "none";
+});
+let down = null;
+canvas.addEventListener("pointerdown", (e) => down = [e.clientX, e.clientY]);
+canvas.addEventListener("pointerup", (e) => {
+  if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 4) { const n = pick(e); if (n) select(n); }
+});
+
+function resize() {
+  const p = canvas.parentElement; renderer.setSize(p.clientWidth, p.clientHeight, false);
+  camera.aspect = p.clientWidth / p.clientHeight; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(canvas.parentElement);
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+
+let start = 0;
+try { const saved = localStorage.getItem("mri3d.study"); const i = STUDIES.findIndex((s) => s.id === saved); if (i >= 0) start = i; } catch {}
+sel.value = start; resize(); loadStudy(start);
+</script>
+</body>
+</html>

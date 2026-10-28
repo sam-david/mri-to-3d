@@ -1,0 +1,25 @@
+# Never commit medical imaging or anything derived from it.
+*.dcm
+DICOMDIR
+*.nii
+*.nii.gz
+*.glb
+*.stl
+*.ply
+*.obj
+work/
+out/
+output/
+data/
+qa/
+/viewer.html
+/site/
+
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+dist/
+build/
+.DS_Store

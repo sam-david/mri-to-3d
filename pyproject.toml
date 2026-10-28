@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mri-to-3d"
+version = "0.1.0"
+description = "Turn clinical MRI (and CT) DICOM into fused 3D models of bones, organs, vessels and muscles, with a single-file web viewer."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+  "TotalSegmentator>=2.4",
+  "nibabel>=5",
+  "numpy>=1.24",
+  "scipy>=1.10",
+  "scikit-image>=0.21",
+  "trimesh>=4",
+  "fast_simplification>=0.1",
+]
+
+[project.optional-dependencies]
+qa = ["matplotlib>=3.7", "pyvista>=0.43"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+mri3d = "mri3d.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mri3d"]
