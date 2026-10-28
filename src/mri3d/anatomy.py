@@ -54,6 +54,8 @@ def pretty(name: str) -> str:
         return f"{m[1]} vertebra"
     if m := re.match(r"^disc_(\w+)-(\w+)$", name):
         return f"{m[1]}–{m[2]} disc"
+    if re.match(r"^disc_\d+$", name):
+        return "Disc (unlabelled level)"
     side = ""
     for s in ("left", "right"):
         if name.endswith("_" + s):

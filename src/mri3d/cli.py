@@ -39,7 +39,7 @@ def cmd_inspect(a):
 
 def cmd_build(a):
     out = Path(a.out)
-    groups, sources = [], []
+    groups, sources, names = [], [], []
     for d in map(Path, a.dicom):
         wd = _work_dir(Path(a.work), d)
         series = dicom.convert(d, wd / "nifti")
@@ -53,11 +53,11 @@ def cmd_build(a):
                 print(f"segmenting  {_fmt(s)}")
                 g[s.path.name] = segment.run(s.path, wd / "seg" / s.path.name[:-7], s.modality, a.preset, a.device)
                 sources.append(f"{s.description} ({s.plane}, {s.shape[2]} × {s.thickness:.1f} mm)")
-            groups.append(g)
+            groups.append(g); names.append(f"\"{study}\"")
     from .fuse import build  # heavy imports after argument errors
     info = {"id": a.id or out.name, "title": a.title or out.name, "date": a.date,
             "sources": "; ".join(sources), "notes": a.notes, "highlight": a.highlight or []}
-    m = build(groups, out, info)
+    m = build(groups, out, info, names)
     multi = sum(1 for v in m["structures"].values() if (v["multi_series_fraction"] or 0) >= 0.8)
     print(f"\n{len(m['structures'])} structures -> {out}/stl  ({multi} reconstructed from 2+ series)")
 

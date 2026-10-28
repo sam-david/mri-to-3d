@@ -70,9 +70,10 @@ def _centroids(group):
     return out
 
 
-def align_groups(groups: list[dict[str, list[Mask]]]) -> tuple[dict[str, list[Mask]], list[str]]:
+def align_groups(groups: list[dict[str, list[Mask]]], names: list[str] | None = None) -> tuple[dict[str, list[Mask]], list[str]]:
     """Merge groups into the frame of the largest one, translating each by the median centroid
     offset of structures both see near-completely (bones preferred). Returns merged + log."""
+    names = names or [f"group {i + 1}" for i in range(len(groups))]
     order = sorted(range(len(groups)), key=lambda i: -len(groups[i]))
     merged = {k: list(v) for k, v in groups[order[0]].items()}
     pending, log = order[1:], []
@@ -93,12 +94,12 @@ def align_groups(groups: list[dict[str, list[Mask]]]) -> tuple[dict[str, list[Ma
             for name, masks in groups[i].items():
                 merged.setdefault(name, []).extend(
                     Mask(m.data, T @ m.affine, m.zooms, m.series) for m in masks)
-            log.append(f"aligned group {i} via {', '.join(pretty(k) for k in anchors[:6])}"
+            log.append(f"aligned {names[i]} to {names[order[0]]} via {', '.join(pretty(k) for k in anchors[:6])}"
                        f" (shift {np.round(t, 1).tolist()} mm, residual {resid:.1f} mm)")
             pending.remove(i); progress = True
         if not progress:
             for i in pending:
-                log.append(f"group {i} skipped: shares no complete structure with the others")
+                log.append(f"{names[i]} skipped: shares no complete structure with the others")
             break
     return merged, log
 
@@ -165,7 +166,7 @@ def split_discs(binary, aff, voxel, vert_centroids):
         if comp.sum() * voxel ** 3 < 100:
             continue
         z = nb.affines.apply_affine(aff, np.argwhere(comp).mean(0))[2]
-        name = f"disc_{i}"
+        name = f"disc_{i}"  # outside the labelled vertebrae: keep, but unnamed
         for (a, ca), (b, cb) in zip(order, order[1:]):
             if cb[2] <= z <= ca[2]:
                 name = f"disc_{a.split('_')[1]}-{b.split('_')[1]}"
@@ -174,11 +175,11 @@ def split_discs(binary, aff, voxel, vert_centroids):
     return out
 
 
-def build(groups: list[dict[str, list[Path]]], out_dir: Path, info: dict) -> dict:
+def build(groups: list[dict[str, list[Path]]], out_dir: Path, info: dict, names: list[str] | None = None) -> dict:
     """groups: one {series id: [seg dirs]} per scanner frame. Writes STLs + manifest.json."""
     out_dir = Path(out_dir)
     (out_dir / "stl").mkdir(parents=True, exist_ok=True)
-    merged, log = align_groups([load_group(g) for g in groups])
+    merged, log = align_groups([load_group(g) for g in groups], names)
     for line in log:
         print("  " + line)
     n_series = len({sid for g in groups for sid in g})
