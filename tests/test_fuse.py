@@ -85,3 +85,30 @@ def test_anatomy_labels(name, cat, label):
 def test_exiting_root(upper, lower, root):
     from mri3d.markers import exiting_root
     assert exiting_root(upper, lower) == root
+
+
+def test_xray_conversion(tmp_path):
+    """A synthetic MONOCHROME1 radiograph is found, inverted (bone white) and exported."""
+    pydicom = pytest.importorskip("pydicom")
+    from pydicom.dataset import FileDataset, FileMetaDataset
+    from pydicom.uid import ExplicitVRLittleEndian, generate_uid
+    from mri3d import xray
+
+    meta = FileMetaDataset()
+    meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.1"
+    meta.MediaStorageSOPInstanceUID = generate_uid()
+    meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    ds = FileDataset(str(tmp_path / "img"), {}, file_meta=meta, preamble=b"\0" * 128)
+    ds.Modality, ds.StudyDescription, ds.ViewPosition, ds.StudyDate = "CR", "XR Phantom", "AP", "20250102"
+    ds.Rows, ds.Columns, ds.SamplesPerPixel = 64, 48, 1
+    ds.PhotometricInterpretation = "MONOCHROME1"
+    ds.BitsAllocated, ds.BitsStored, ds.HighBit, ds.PixelRepresentation = 16, 12, 11, 0
+    a = np.full((64, 48), 3000, np.uint16); a[20:40, 10:30] = 200  # "bone" is low in MONOCHROME1
+    ds.PixelData = a.tobytes()
+    (tmp_path / "dicom").mkdir(); ds.save_as(tmp_path / "dicom" / "IM0001", enforce_file_format=True)
+
+    m = xray.convert(tmp_path / "dicom", tmp_path / "out", {"id": "x", "title": "t"})
+    assert [(i["study"], i["view"], i["date"]) for i in m["images"]] == [("XR Phantom", "AP", "2025-01-02")]
+    from PIL import Image
+    px = np.asarray(Image.open(tmp_path / "out" / m["images"][0]["src"]))
+    assert px[30, 20] > px[5, 5]  # inverted: the dense square renders brighter than background

@@ -61,6 +61,7 @@ mri3d build DICOM_DIR [DICOM_DIR ...] -o OUT  # convert -> segment -> fuse
           [--preset auto|spine|body|limbs|muscles] [--series REGEX]
           [--title T] [--date D] [--highlight vertebrae_L4 disc_L4-L5]
 mri3d mark OUT --foramen L4-L5:left [--note "report finding"]   # mark a nerve-root exit
+mri3d xray DICOM_DIR -o OUT                   # X-rays (CR/DX) -> image set for the viewer
 mri3d viewer OUT [OUT ...] -o viewer.html     # one file, every model inlined
 mri3d viewer OUT [OUT ...] -o site --folder   # site/index.html + site/models/*.glb for hosting
 ```
@@ -88,6 +89,15 @@ vertebrae, disc and spinal cord: it starts at the cord's edge at the disc level,
 the way foramina run in that region, and centres the height in the bony gap between the two
 vertebrae. The viewer shows a toggle per marker that flies the camera to it, along with any `--note`.
 Markers show location, not severity.
+
+### X-rays
+
+Radiographs are single 2D projections, so there's nothing to reconstruct in 3D. `mri3d xray`
+windows them (DICOM VOI LUT, else robust percentiles), inverts MONOCHROME1 so bone is white,
+and writes an image set. Pass it to `mri3d viewer` with your 3D builds, and it appears in the
+same scan menu as a gallery with zoom, pan, brightness, contrast and invert. Compressed
+(JPEG 2000 / JPEG-LS) files are decoded via pylibjpeg. Only pixels are exported, but some
+X-rays carry text burned into the image, so look before sharing.
 
 ### Outputs
 

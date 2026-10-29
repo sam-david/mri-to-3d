@@ -49,6 +49,22 @@ def study_glb(study_dir: Path, manifest: dict) -> bytes:
     return buf.getvalue()
 
 
+def _image_entry(d: Path, manifest: dict, dest: Path, folder: bool) -> dict:
+    """X-ray sets: copy PNGs next to the page (folder) or inline them as data URIs."""
+    images = []
+    for im in manifest["images"]:
+        png = (d / im["src"]).read_bytes()
+        if folder:
+            rel = f"models/{manifest['id']}/{Path(im['src']).name}"
+            (dest / rel).parent.mkdir(parents=True, exist_ok=True)
+            (dest / rel).write_bytes(png)
+            src = rel
+        else:
+            src = "data:image/png;base64," + base64.b64encode(png).decode()
+        images.append({**im, "src": src})
+    return {k: manifest.get(k) for k in ("kind", "id", "title", "date", "notes")} | {"images": images}
+
+
 def export(study_dirs: list[Path], dest: Path, folder: bool = False, title: str = "3D Scan Models") -> Path:
     template = resources.files("mri3d").joinpath("viewer.html").read_text()
     studies = []
@@ -57,6 +73,10 @@ def export(study_dirs: list[Path], dest: Path, folder: bool = False, title: str 
     for d in study_dirs:
         d = Path(d)
         manifest = json.loads((d / "manifest.json").read_text())
+        if manifest.get("kind") == "images":
+            studies.append(_image_entry(d, manifest, dest, folder))
+            print(f"  {manifest['id']}: {len(manifest['images'])} images")
+            continue
         glb = study_glb(d, manifest)
         center = study_center(d)
         entry = {k: manifest.get(k) for k in ("id", "title", "date", "sources", "notes", "highlight", "alignment", "structures")}

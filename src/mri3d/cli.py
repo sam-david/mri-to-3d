@@ -3,6 +3,7 @@
   mri3d inspect  DICOM_DIR                 list series and which ones would be used
   mri3d build    DICOM_DIR [...] -o OUT    convert, segment, fuse  -> OUT/stl/*.stl + manifest.json
   mri3d mark     OUT --foramen L4-L5:left  add a location marker (e.g. a nerve-root exit) to a build
+  mri3d xray     DICOM_DIR -o OUT          radiographs (CR/DX) -> image set for the viewer
   mri3d viewer   OUT [...] -o viewer.html  bundle one or more builds into the web viewer
 """
 from __future__ import annotations
@@ -12,7 +13,7 @@ import hashlib
 import re
 from pathlib import Path
 
-from . import dicom, markers, segment, web
+from . import dicom, markers, segment, web, xray
 from .segment import PRESETS
 
 
@@ -71,6 +72,14 @@ def cmd_mark(a):
         print(f"marked {mk['label']} in {a.out}")
 
 
+def cmd_xray(a):
+    m = xray.convert(Path(a.dicom), Path(a.out), {"id": a.id or Path(a.out).name,
+                                                   "title": a.title or Path(a.out).name, "date": a.date})
+    for im in m["images"]:
+        print(f"  {im['date']}  {im['study']}  {im['view']}  {im['width']}x{im['height']}")
+    print(f"{len(m['images'])} images -> {a.out}  (check for burned-in text before sharing)")
+
+
 def cmd_viewer(a):
     dest = web.export([Path(p) for p in a.builds], Path(a.out), folder=a.folder, title=a.title)
     print(f"wrote {dest}")
@@ -101,6 +110,11 @@ def main(argv=None):
     k.add_argument("--foramen", nargs="+", required=True, metavar="LEVEL:SIDE", help="e.g. L4-L5:left")
     k.add_argument("--note", help="text shown with the marker in the viewer (e.g. a report finding)")
     k.set_defaults(fn=cmd_mark)
+
+    x = sub.add_parser("xray", help="radiographs (CR/DX) -> image set for the viewer")
+    x.add_argument("dicom"); x.add_argument("-o", "--out", required=True)
+    x.add_argument("--title"); x.add_argument("--date"); x.add_argument("--id")
+    x.set_defaults(fn=cmd_xray)
 
     v = sub.add_parser("viewer", help="bundle builds into the web viewer")
     v.add_argument("builds", nargs="+")

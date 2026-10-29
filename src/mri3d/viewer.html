@@ -68,6 +68,28 @@ button.mark.on { background: var(--mark-soft); border-color: var(--mark); color:
 .mark-note { margin-top: 8px; font-size: 12.5px; background: var(--mark-soft); border-radius: 10px; padding: 9px 11px; }
 .mark-note b { display: block; margin-bottom: 2px; }
 .mark-note small { display: block; color: var(--muted); margin-top: 4px; }
+.hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+.img-group { margin-top: 8px; }
+.img-group b { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 4px; }
+#gallery { position: absolute; inset: 0; overflow-y: auto; padding: 18px; display: grid; gap: 22px; align-content: start; background: var(--stage); }
+.g-sec h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.g-sec h3 span { color: var(--muted); font-weight: 400; font-family: var(--font-data); font-size: 12px; margin-left: 6px; }
+.g-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.g-item { background: #000; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; cursor: pointer; padding: 0; display: grid; text-align: left; color: var(--ink); }
+.g-item img { width: 100%; aspect-ratio: 3 / 4; object-fit: contain; display: block; background: #000; }
+.g-item span { background: var(--panel); padding: 6px 9px; font-size: 12px; }
+.g-item:hover { border-color: var(--accent); }
+#lb { position: absolute; inset: 0; display: grid; grid-template-rows: auto 1fr auto; background: #000; color: #e9eef0; }
+#lb[hidden], #gallery[hidden] { display: none; }
+.lb-bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; flex-wrap: wrap; background: #0d1114; }
+.lb-bar #lb-title { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-tools { display: flex; gap: 6px; }
+#lb button { background: #1b2328; color: #e9eef0; border-color: #2c363c; }
+#lb button.on { background: #17323a; border-color: #5bb8c9; color: #5bb8c9; }
+.lb-view { overflow: hidden; position: relative; touch-action: none; cursor: grab; }
+.lb-view img { position: absolute; left: 50%; top: 50%; max-width: none; transform-origin: 0 0; user-select: none; -webkit-user-drag: none; }
+.lb-sliders { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); background: #0d1114; font-size: 12px; }
+.lb-sliders input { flex: 1; min-width: 110px; accent-color: #5bb8c9; }
 .disclaimer { margin-top: 20px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
 @media (max-width: 760px) {
   .app { grid-template-columns: 1fr; grid-template-rows: auto auto; height: auto; }
@@ -89,6 +111,13 @@ button.mark.on { background: var(--mark-soft); border-color: var(--mark); color:
     <select id="study"></select>
     <div class="meta" id="meta"></div>
 
+    <div id="img-ctrls" hidden>
+      <label class="field">Images</label>
+      <div id="img-list"></div>
+      <p class="hint">Tap an image to open it. Pinch or scroll to zoom, drag to pan, double-tap to reset.</p>
+    </div>
+
+    <div id="three-ctrls">
     <label class="field">View</label>
     <div class="row" id="views">
       <button data-v="front">Front</button><button data-v="back">Back</button>
@@ -112,6 +141,7 @@ button.mark.on { background: var(--mark-soft); border-color: var(--mark); color:
 
     <label class="field">Structures</label>
     <div id="groups"></div>
+    </div>
 
     <div class="disclaimer">These are visualisations made by automated segmentation (TotalSegmentator) of clinical scans, so they aren't diagnostic. Surface detail is limited by slice thickness. Use the original images and radiology reports for medical decisions.</div>
   </aside>
@@ -121,6 +151,25 @@ button.mark.on { background: var(--mark-soft); border-color: var(--mark); color:
     <div class="legend" id="legend"></div>
     <div id="tip"></div>
     <div id="sel"></div>
+    <div id="gallery" hidden></div>
+    <div id="lb" hidden>
+      <div class="lb-bar">
+        <button id="lb-close" aria-label="Back to all images">← All</button>
+        <span id="lb-title"></span>
+        <span class="lb-tools">
+          <button id="lb-prev" aria-label="Previous image">‹</button>
+          <button id="lb-next" aria-label="Next image">›</button>
+          <button id="lb-out" aria-label="Zoom out">−</button>
+          <button id="lb-in" aria-label="Zoom in">+</button>
+          <button id="lb-inv" aria-pressed="false">Invert</button>
+        </span>
+      </div>
+      <div class="lb-view" id="lb-view"><img id="lb-img" alt=""></div>
+      <div class="lb-sliders">
+        <label for="lb-b">Brightness</label><input id="lb-b" type="range" min="40" max="200" value="100">
+        <label for="lb-c">Contrast</label><input id="lb-c" type="range" min="40" max="250" value="100">
+      </div>
+    </div>
   </main>
 </div>
 
@@ -299,9 +348,100 @@ function select(n) {
   applyMaterials(); refreshChips();
 }
 
+// ---- 2D image sets (X-rays) ----
+let lbIndex = 0, lbZoom = 1, lbX = 0, lbY = 0, lbInv = false;
+const lbImg = document.getElementById("lb-img"), lbView = document.getElementById("lb-view");
+const escT = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const imgLabel = (im) => `${im.view}`;
+function show3D(on) {
+  document.getElementById("three-ctrls").hidden = !on;
+  document.getElementById("img-ctrls").hidden = on;
+  document.getElementById("gallery").hidden = on;
+  document.getElementById("lb").hidden = true;
+  for (const id of ["c", "legend", "sel", "tip"]) document.getElementById(id).style.visibility = on ? "" : "hidden";
+}
+function showImages() {
+  show3D(false);
+  if (root) { scene.remove(root); root = null; meshes = {}; marks = {}; }
+  const groups = {};
+  current.images.forEach((im, i) => (groups[im.study + "|" + (im.date || "")] ||= []).push([im, i]));
+  const g = document.getElementById("gallery"), list = document.getElementById("img-list");
+  g.innerHTML = ""; list.innerHTML = "";
+  for (const [key, items] of Object.entries(groups)) {
+    const [study, date] = key.split("|");
+    const sec = document.createElement("section"); sec.className = "g-sec";
+    sec.innerHTML = `<h3>${escT(study)}<span>${escT(date)}</span></h3><div class="g-grid"></div>`;
+    const lg = document.createElement("div"); lg.className = "img-group";
+    lg.innerHTML = `<b>${escT(study)}</b><div class="items"></div>`;
+    for (const [im, i] of items) {
+      const b = document.createElement("button"); b.className = "g-item";
+      b.innerHTML = `<img loading="lazy" src="${escT(im.src)}" alt="${escT(study + " " + imgLabel(im))}"><span>${escT(imgLabel(im))}</span>`;
+      b.onclick = () => openLb(i);
+      sec.querySelector(".g-grid").appendChild(b);
+      const chip = document.createElement("span"); chip.className = "item"; chip.tabIndex = 0; chip.setAttribute("role", "button");
+      chip.textContent = imgLabel(im); chip.onclick = () => openLb(i);
+      chip.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openLb(i); } };
+      lg.querySelector(".items").appendChild(chip);
+    }
+    g.appendChild(sec); list.appendChild(lg);
+  }
+}
+function lbApply() {
+  const r = lbView.getBoundingClientRect();
+  const fit = Math.min(r.width / (lbImg.naturalWidth || 1), r.height / (lbImg.naturalHeight || 1));
+  const s = fit * lbZoom;
+  lbImg.style.width = lbImg.naturalWidth * s + "px";
+  lbImg.style.transform = `translate(${-lbImg.naturalWidth * s / 2 + lbX}px, ${-lbImg.naturalHeight * s / 2 + lbY}px)`;
+  const b = document.getElementById("lb-b").value / 100, c = document.getElementById("lb-c").value / 100;
+  lbImg.style.filter = `brightness(${b}) contrast(${c})${lbInv ? " invert(1)" : ""}`;
+}
+function lbReset() { lbZoom = 1; lbX = 0; lbY = 0; lbApply(); }
+function openLb(i) {
+  lbIndex = (i + current.images.length) % current.images.length;
+  const im = current.images[lbIndex];
+  document.getElementById("lb").hidden = false;
+  document.getElementById("lb-title").textContent = `${im.study} · ${imgLabel(im)}${im.date ? " · " + im.date : ""}`;
+  lbImg.onload = lbReset; lbImg.src = im.src; lbImg.alt = `${im.study} ${imgLabel(im)}`;
+}
+document.getElementById("lb-close").onclick = () => { document.getElementById("lb").hidden = true; };
+document.getElementById("lb-prev").onclick = () => openLb(lbIndex - 1);
+document.getElementById("lb-next").onclick = () => openLb(lbIndex + 1);
+document.getElementById("lb-in").onclick = () => { lbZoom = Math.min(lbZoom * 1.4, 12); lbApply(); };
+document.getElementById("lb-out").onclick = () => { lbZoom = Math.max(lbZoom / 1.4, 0.5); lbApply(); };
+document.getElementById("lb-inv").onclick = (e) => { lbInv = !lbInv; e.target.classList.toggle("on", lbInv); e.target.setAttribute("aria-pressed", lbInv); lbApply(); };
+for (const id of ["lb-b", "lb-c"]) document.getElementById(id).oninput = lbApply;
+lbView.addEventListener("wheel", (e) => { e.preventDefault(); lbZoom = Math.min(Math.max(lbZoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12), 0.5), 12); lbApply(); }, { passive: false });
+lbView.addEventListener("dblclick", lbReset);
+const ptrs = new Map(); let pinch0 = 0, zoom0 = 1;
+lbView.addEventListener("pointerdown", (e) => { lbView.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); zoom0 = lbZoom; } });
+lbView.addEventListener("pointermove", (e) => {
+  if (!ptrs.has(e.pointerId)) return;
+  const prev = ptrs.get(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; lbZoom = Math.min(Math.max(zoom0 * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch0, 0.5), 12); }
+  else { lbX += e.clientX - prev[0]; lbY += e.clientY - prev[1]; }
+  lbApply();
+});
+for (const ev of ["pointerup", "pointercancel"]) lbView.addEventListener(ev, (e) => ptrs.delete(e.pointerId));
+addEventListener("keydown", (e) => {
+  if (document.getElementById("lb").hidden) return;
+  if (e.key === "ArrowLeft") openLb(lbIndex - 1); else if (e.key === "ArrowRight") openLb(lbIndex + 1);
+  else if (e.key === "Escape") document.getElementById("lb").hidden = true;
+});
+new ResizeObserver(() => { if (!document.getElementById("lb").hidden) lbApply(); }).observe(lbView);
+
 const loader = new GLTFLoader();
 async function loadStudy(i) {
   current = STUDIES[i];
+  if (current.kind === "images") {
+    showImages();
+    document.getElementById("meta").innerHTML = [["Date", current.date], ["Notes", current.notes]]
+      .filter(([, v]) => v).map(([k, v]) => `<b>${k}</b>${escT(v)}`).join("");
+    document.getElementById("loading").style.display = "none";
+    try { localStorage.setItem("mri3d.study", current.id); } catch {}
+    return;
+  }
+  show3D(true);
   document.getElementById("loading").style.display = "grid";
   if (root) { scene.remove(root); root.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); }); }
   const buf = current.glb ? b64ToBuf(current.glb) : await (await fetch(current.src)).arrayBuffer();

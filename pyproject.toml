@@ -17,6 +17,10 @@ dependencies = [
   "scikit-image>=0.21",
   "trimesh>=4",
   "fast_simplification>=0.1",
+  "pydicom>=3",
+  "pylibjpeg>=2",
+  "pylibjpeg-openjpeg>=2",
+  "pillow>=10",
 ]
 
 [project.optional-dependencies]
